@@ -1,27 +1,32 @@
 import argparse
 import torch
 from pathlib import Path
-import yaml
+import numpy as np
 from tqdm import tqdm
 
 from models.common import DetectMultiBackend
 from utils.general import (check_img_size, non_max_suppression, scale_boxes,
-                           xyxy2xywh, increment_path, colorstr)
+                           xyxy2xywh, increment_path)
 from utils.dataloaders import create_dataloader
 from utils.metrics import ConfusionMatrix, ap_per_class
+from utils.plots import output_to_target
 from utils.pbc.pbc import correct_boxes_pbc  # your PBC function
 
 
-def save_predictions_yolo(save_dir, path, boxes, confs, cls, img_h, img_w):
+def save_predictions_yolo(save_dir, path, boxes, confs, cls):
     """Save predictions in YOLO txt format."""
     txt_path = save_dir / (path.stem + '.txt')
     with open(txt_path, 'w') as f:
         for box, conf, c in zip(boxes, confs, cls):
+            # Convert x1y1x2y2 -> x_center y_center width height normalized
             x1, y1, x2, y2 = box
             xc = (x1 + x2) / 2
             yc = (y1 + y2) / 2
             w = x2 - x1
             h = y2 - y1
+            # Normalize to 0-1 using image size
+            img_h, img_w = 1.0, 1.0  # placeholder; we'll pass real size
+            # Write normalized coordinates
             f.write(f"{int(c)} {xc/img_w:.6f} {yc/img_h:.6f} {w/img_w:.6f} {h/img_h:.6f} {conf:.6f}\n")
 
 
@@ -34,7 +39,7 @@ def run(
     iou_thres=0.45,
     device='cuda',
     save_dir='runs/val_pbc',
-    task = 'val'
+    verbose=True
 ):
 
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
@@ -44,28 +49,16 @@ def run(
     stride, names, pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)
 
-    # Load dataset YAML
-    with open(data, 'r') as f:
-        data_dict = yaml.safe_load(f)
-
-    # Dataloader parameters
-    single_cls = False
-    pad = 0.5
-    rect = False
-    workers = 4
-
-    # Create dataloader
+    # Dataloader
     dataloader, dataset = create_dataloader(
-        data_dict[task],
-        imgsz,
-        batch_size,
-        stride,
-        single_cls=single_cls,
-        pad=pad,
-        rect=rect,
-        workers=workers,
-        prefix=colorstr(f"{task}: "),
-        shuffle=False
+        path=None,
+        imgsz=imgsz,
+        batch_size=batch_size,
+        stride=stride,
+        pad=0.0,
+        rect=True,
+        mode='val',
+        data=data
     )
 
     # Metrics
@@ -80,6 +73,7 @@ def run(
 
         img = img.to(device, non_blocking=True)
         targets = targets.to(device)
+        bs = img.shape[0]
 
         # Inference
         with torch.no_grad():
@@ -108,7 +102,7 @@ def run(
                 det[:, :4] = torch.tensor(boxes_corrected, device=det.device)
 
                 # Save YOLO format predictions
-                save_predictions_yolo(save_dir, Path(paths[si]), boxes_corrected, confs, cls, img_h, img_w)
+                save_predictions_yolo(save_dir, Path(paths[si]), boxes_corrected, confs, cls)
 
             # Update metrics
             labels = targets[targets[:, 0] == si, 1:]
@@ -150,7 +144,6 @@ if __name__ == "__main__":
     parser.add_argument('--iou', type=float, default=0.45)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--save-dir', type=str, default='runs/val_pbc')
-    parser.add_argument('--task', type=str, default='val')
     opt = parser.parse_args()
 
     run(weights=opt.weights,
@@ -160,5 +153,4 @@ if __name__ == "__main__":
         conf_thres=opt.conf,
         iou_thres=opt.iou,
         device=opt.device,
-        save_dir=opt.save_dir,
-        task=opt.task)
+        save_dir=opt.save_dir)
