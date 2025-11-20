@@ -33,10 +33,8 @@ except (ImportError, AssertionError):
     os.system("pip install -U ultralytics")
     import ultralytics
 
-from ultralytics.utils.plotting import Annotator, colors, save_one_box
-import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from ultralytics.utils.plotting import Annotator, colors, save_one_box
 
 from utils import TryExcept
 from utils.dataloaders import exif_transpose, letterbox
@@ -1111,15 +1109,15 @@ class Classify(nn.Module):
         if isinstance(x, list):
             x = torch.cat(x, 1)
         return self.linear(self.drop(self.pool(self.conv(x)).flatten(1)))
-    
+
+
 class ICA(nn.Module):
+    """Improved Coordinate Attention (ICA) Adds X/Y max-pooling in addition to average pooling. Usage: instantiate with
+    in_channels and call on feature maps before Concat.
     """
-    Improved Coordinate Attention (ICA)
-    Adds X/Y max-pooling in addition to average pooling.
-    Usage: instantiate with in_channels and call on feature maps before Concat.
-    """
+
     def __init__(self, in_channels, reduction=32):
-        super(ICA, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.mid = max(8, in_channels // reduction)
         # We will fuse pooled features (avg+max) vertically/horizontally
@@ -1133,18 +1131,18 @@ class ICA(nn.Module):
 
     def forward(self, x):
         # x: (B,C,H,W)
-        b, c, h, w = x.size()
+        _b, _c, h, w = x.size()
         # Horizontal pooling: (B,C,H,1)
-        x_h_avg = F.adaptive_avg_pool2d(x, (h,1))
-        x_h_max = F.adaptive_max_pool2d(x, (h,1))
+        x_h_avg = F.adaptive_avg_pool2d(x, (h, 1))
+        x_h_max = F.adaptive_max_pool2d(x, (h, 1))
         x_h = torch.cat([x_h_avg, x_h_max], dim=1)  # (B,2C,H,1)
 
         # Vertical pooling: (B,C,1,W) -> transpose to (B,C,W,1)
-        x_w_avg = F.adaptive_avg_pool2d(x, (1,w)).permute(0,1,3,2)
-        x_w_max = F.adaptive_max_pool2d(x, (1,w)).permute(0,1,3,2)
+        x_w_avg = F.adaptive_avg_pool2d(x, (1, w)).permute(0, 1, 3, 2)
+        x_w_max = F.adaptive_max_pool2d(x, (1, w)).permute(0, 1, 3, 2)
         x_w = torch.cat([x_w_avg, x_w_max], dim=1)  # (B,2C,W,1)
         # Resize x_w to have same spatial height as x_h (H,1)
-        x_w = F.interpolate(x_w, size=(h,1), mode='nearest')
+        x_w = F.interpolate(x_w, size=(h, 1), mode="nearest")
 
         # Fuse along channel axis
         y = torch.cat([x_h, x_w], dim=1)  # (B,4C,H,1) logically
@@ -1156,16 +1154,19 @@ class ICA(nn.Module):
         a_h = torch.sigmoid(self.conv_h(y))  # (B,C,H,1)
         a_w = torch.sigmoid(self.conv_w(y))  # (B,C,H,1)
         # Upsample attention maps to full spatial size
-        a_h = F.interpolate(a_h, size=(h,w), mode='nearest')
-        a_w = F.interpolate(a_w, size=(h,w), mode='nearest')
+        a_h = F.interpolate(a_h, size=(h, w), mode="nearest")
+        a_w = F.interpolate(a_w, size=(h, w), mode="nearest")
         out = x * a_h * a_w
         return out
 
+
 class C3_ICA(nn.Module):
-    """C3 module with ICA inserted"""
+    """C3 module with ICA inserted."""
+
     def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
         super().__init__()
         from models.common import C3  # original C3
+
         self.c3 = C3(c1, c2, n, shortcut, g, e)
         self.ica = ICA(c2, c2)  # output channels same as C3
 
@@ -1173,6 +1174,3 @@ class C3_ICA(nn.Module):
         x = self.c3(x)
         x = self.ica(x)
         return x
-
-
-
