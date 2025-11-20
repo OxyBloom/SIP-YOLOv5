@@ -1,5 +1,5 @@
 # Dataset root directory relative to the yolov5 directory
-path: /home/david/nav2_ws/Dataset_unwrap_yolo_complete/new/data
+path: /content/drive/MyDrive/Research/yolo/data
 
 # Train/val/test sets: specify directories, *.txt files, or lists
 train: images/train  # Train images folder

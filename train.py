@@ -32,6 +32,13 @@ except ImportError:
 
 import numpy as np
 import torch
+import torch
+
+
+torch.use_deterministic_algorithms(False)
+torch.backends.cudnn.deterministic = False
+torch.backends.cudnn.benchmark = True
+
 import torch.distributed as dist
 import torch.nn as nn
 import yaml
@@ -200,7 +207,7 @@ def train(hyp, opt, device, callbacks):
     # Config
     plots = not evolve and not opt.noplots  # create plots
     cuda = device.type != "cpu"
-    init_seeds(opt.seed + 1 + RANK, deterministic=True)
+    init_seeds(opt.seed + 1 + RANK, deterministic=False)
     with torch_distributed_zero_first(LOCAL_RANK):
         data_dict = data_dict or check_dataset(data)  # check if None
     train_path, val_path = data_dict["train"], data_dict["val"]
