@@ -1,0 +1,61 @@
+# models/yolov5m_P2.yaml
+# 4-scale YOLOv5m variant: P2 (1/4), P3 (1/8), P4 (1/16), P5 (1/32)
+nc: 80
+depth_multiple: 0.67
+width_multiple: 0.75
+
+anchors:
+  - [5,6, 8,12, 12,10]      # P2 (small)
+  - [10,13, 16,30, 33,23]   # P3
+  - [30,61, 62,45, 59,119]  # P4
+  - [116,90, 156,198, 373,326] # P5
+
+# Backbone
+backbone:
+  [
+    [-1, 1, Conv, [48, 6, 2, 2, 1]],
+    [-1, 1, Conv, [96, 3, 2, 1, 1]],
+    [-1, 2, C3_ICA, [96, False]],        # 2 P2 feature + ICA
+    [-1, 1, Conv, [192, 3, 2, 1, 1]],
+    [-1, 4, C3_ICA, [192, False]],       # 4 P3 feature + ICA
+    [-1, 1, Conv, [384, 3, 2, 1, 1]],
+    [-1, 6, C3_ICA, [384, False]],       # 6 P4 feature + ICA
+    [-1, 1, Conv, [768, 3, 2, 1, 1]],
+    [-1, 2, C3_ICA, [768, False]],       # 8 P5 feature + ICA
+    [-1, 1, SPPF, [768, 5]],
+  ]
+
+# Head
+head:
+  [
+    # --- P5 -> P4 (upsample + concat + refine)
+    [9, 1, Conv, [384, 1, 1, 0, 1]],      # 10 reduce channels (out_channels, k, s, p, g)
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]], # 11 upsample
+    [[-1, 6], 1, Concat, [1]],                  # 12 concat with P4 backbone
+    [-1, 3, C3, [384, False]],         # 13 refined P4 (out_channels, shortcut)
+
+    # --- P4 -> P3 (upsample + concat + refine)
+    [13, 1, Conv, [192, 1, 1, 0, 1]],     # 14 reduce
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]], # 15 upsample
+    [[-1, 4], 1, Concat, [1]],                  # 16 concat with P3 backbone
+    [-1, 3, C3, [192, False]],         # 17 refined P3
+
+    # --- P3 -> P2 (upsample + concat + refine)
+    [17, 1, Conv, [96, 1, 1, 0, 1]],      # 18 reduce
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]], # 19 upsample
+    [[-1, 2], 1, Concat, [1]],                  # 20 concat with P2 backbone
+    [-1, 3, C3, [96, False]],          # 21 refined P2
+
+    # --- Downsample P2 -> P3 refinement
+    [21, 1, Conv, [192, 3, 2, 1, 1]],      # 22 downsample
+    [[-1, 17], 1, Concat, [1]],                 # 23 concat with P3 refined
+    [-1, 3, C3, [384, False]],         # 24 P3 refine
+
+    # --- Downsample P3 -> P4 refinement
+    [24, 1, Conv, [384, 3, 2, 1, 1]],     # 25 downsample
+    [[-1, 13], 1, Concat, [1]],                 # 26 concat with P4 refined
+    [-1, 3, C3, [768, False]],         # 27 P4 refine
+
+    # --- Detect
+    [[21, 24, 27, 9], 1, Detect, [nc, anchors]],
+  ]
