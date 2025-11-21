@@ -2,10 +2,10 @@
 path: '/content/drive/MyDrive/Research/yolo/data'
 
 # Train/val/test sets: specify directories, *.txt files, or lists
-train: images/train  # Train images folder
-val: images/val    # Validation images folder
-test: images/test   # Test images folder
+train: images/train # Train images folder
+val: images/val # Validation images folder
+test: images/test # Test images folder
 
 # Classes (example using 80 COCO classes)
 names:
-    0: negative_obstacle
+  0: negative_obstacle
