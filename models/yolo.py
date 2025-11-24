@@ -27,6 +27,7 @@ if platform.system() != "Windows":
 
 from models.common import (
     C3,
+    C3_ICA,
     C3SPP,
     C3TR,
     SPP,
@@ -48,7 +49,6 @@ from models.common import (
     GhostBottleneck,
     GhostConv,
     Proto,
-    C3_ICA,
 )
 from models.experimental import MixConv2d
 from utils.autoanchor import check_anchor_order

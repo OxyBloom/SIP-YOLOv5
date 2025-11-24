@@ -1,22 +1,20 @@
 import argparse
-import torch
 from pathlib import Path
-import numpy as np
+
+import torch
 from tqdm import tqdm
 
 from models.common import DetectMultiBackend
-from utils.general import (check_img_size, non_max_suppression, scale_boxes,
-                           xyxy2xywh, increment_path)
 from utils.dataloaders import create_dataloader
+from utils.general import check_img_size, non_max_suppression, scale_boxes
 from utils.metrics import ConfusionMatrix, ap_per_class
-from utils.plots import output_to_target
 from utils.pbc.pbc import correct_boxes_pbc  # your PBC function
 
 
 def save_predictions_yolo(save_dir, path, boxes, confs, cls):
     """Save predictions in YOLO txt format."""
-    txt_path = save_dir / (path.stem + '.txt')
-    with open(txt_path, 'w') as f:
+    txt_path = save_dir / (path.stem + ".txt")
+    with open(txt_path, "w") as f:
         for box, conf, c in zip(boxes, confs, cls):
             # Convert x1y1x2y2 -> x_center y_center width height normalized
             x1, y1, x2, y2 = box
@@ -27,38 +25,30 @@ def save_predictions_yolo(save_dir, path, boxes, confs, cls):
             # Normalize to 0-1 using image size
             img_h, img_w = 1.0, 1.0  # placeholder; we'll pass real size
             # Write normalized coordinates
-            f.write(f"{int(c)} {xc/img_w:.6f} {yc/img_h:.6f} {w/img_w:.6f} {h/img_h:.6f} {conf:.6f}\n")
+            f.write(f"{int(c)} {xc / img_w:.6f} {yc / img_h:.6f} {w / img_w:.6f} {h / img_h:.6f} {conf:.6f}\n")
 
 
 def run(
-    weights='runs/train/sip_yolov5/weights/best.pt',
-    data='data/data.yaml',
+    weights="runs/train/sip_yolov5/weights/best.pt",
+    data="data/data.yaml",
     batch_size=16,
     imgsz=640,
     conf_thres=0.25,
     iou_thres=0.45,
-    device='cuda',
-    save_dir='runs/val_pbc',
-    verbose=True
+    device="cuda",
+    save_dir="runs/val_pbc",
+    verbose=True,
 ):
-
-    device = torch.device(device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(device if torch.cuda.is_available() else "cpu")
 
     # Load model
     model = DetectMultiBackend(weights, device=device, data=data)
-    stride, names, pt = model.stride, model.names, model.pt
+    stride, names, _pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)
 
     # Dataloader
-    dataloader, dataset = create_dataloader(
-        path=None,
-        imgsz=imgsz,
-        batch_size=batch_size,
-        stride=stride,
-        pad=0.0,
-        rect=True,
-        mode='val',
-        data=data
+    dataloader, _dataset = create_dataloader(
+        path=None, imgsz=imgsz, batch_size=batch_size, stride=stride, pad=0.0, rect=True, mode="val", data=data
     )
 
     # Metrics
@@ -70,10 +60,9 @@ def run(
 
     # Run evaluation
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader)):
-
         img = img.to(device, non_blocking=True)
         targets = targets.to(device)
-        bs = img.shape[0]
+        img.shape[0]
 
         # Inference
         with torch.no_grad():
@@ -84,7 +73,7 @@ def run(
 
         for si, det in enumerate(pred):
             im0 = shapes[si][0]  # original image
-            img_h, img_w = im0.shape[:2]
+            _img_h, _img_w = im0.shape[:2]
 
             if len(det):
                 # Rescale boxes to original image
@@ -123,12 +112,14 @@ def run(
 
     # mAP computation
     if stats_tensor.shape[0]:
-        precision, recall, AP, f1, ap_class = ap_per_class(stats_tensor[:, :4], stats_tensor[:, 4].long(), stats_tensor[:, 5])
+        precision, recall, AP, f1, ap_class = ap_per_class(
+            stats_tensor[:, :4], stats_tensor[:, 4].long(), stats_tensor[:, 5]
+        )
     else:
-        precision, recall, AP, f1, ap_class = 0, 0, 0, 0, 0
+        precision, recall, AP, f1, _ap_class = 0, 0, 0, 0, 0
 
     # Print results
-    print(f"\nPBC Evaluation Results:")
+    print("\nPBC Evaluation Results:")
     print(f"mAP@0.5: {AP:.4f}")
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
     print(f"Corrected predictions saved to {save_dir}")
@@ -136,21 +127,23 @@ def run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='runs/train/sip_yolov5/weights/best.pt')
-    parser.add_argument('--data', type=str, default='data/data.yaml')
-    parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--imgsz', type=int, default=640)
-    parser.add_argument('--conf', type=float, default=0.25)
-    parser.add_argument('--iou', type=float, default=0.45)
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--save-dir', type=str, default='runs/val_pbc')
+    parser.add_argument("--weights", type=str, default="runs/train/sip_yolov5/weights/best.pt")
+    parser.add_argument("--data", type=str, default="data/data.yaml")
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--imgsz", type=int, default=640)
+    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--iou", type=float, default=0.45)
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--save-dir", type=str, default="runs/val_pbc")
     opt = parser.parse_args()
 
-    run(weights=opt.weights,
+    run(
+        weights=opt.weights,
         data=opt.data,
         batch_size=opt.batch_size,
         imgsz=opt.imgsz,
         conf_thres=opt.conf,
         iou_thres=opt.iou,
         device=opt.device,
-        save_dir=opt.save_dir)
+        save_dir=opt.save_dir,
+    )

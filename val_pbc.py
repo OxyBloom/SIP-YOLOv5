@@ -1,51 +1,50 @@
 import argparse
-import torch
 from pathlib import Path
+
+import torch
 import yaml
 from tqdm import tqdm
 
 from models.common import DetectMultiBackend
-from utils.general import (check_img_size, non_max_suppression, scale_boxes,
-                           xyxy2xywh, increment_path, colorstr)
 from utils.dataloaders import create_dataloader
+from utils.general import check_img_size, colorstr, non_max_suppression, scale_boxes
 from utils.metrics import ConfusionMatrix, ap_per_class
 from utils.pbc.pbc import correct_boxes_pbc  # your PBC function
 
 
 def save_predictions_yolo(save_dir, path, boxes, confs, cls, img_h, img_w):
     """Save predictions in YOLO txt format."""
-    txt_path = save_dir / (path.stem + '.txt')
-    with open(txt_path, 'w') as f:
+    txt_path = save_dir / (path.stem + ".txt")
+    with open(txt_path, "w") as f:
         for box, conf, c in zip(boxes, confs, cls):
             x1, y1, x2, y2 = box
             xc = (x1 + x2) / 2
             yc = (y1 + y2) / 2
             w = x2 - x1
             h = y2 - y1
-            f.write(f"{int(c)} {xc/img_w:.6f} {yc/img_h:.6f} {w/img_w:.6f} {h/img_h:.6f} {conf:.6f}\n")
+            f.write(f"{int(c)} {xc / img_w:.6f} {yc / img_h:.6f} {w / img_w:.6f} {h / img_h:.6f} {conf:.6f}\n")
 
 
 def run(
-    weights='runs/train/sip_yolov5/weights/best.pt',
-    data='data/data.yaml',
+    weights="runs/train/sip_yolov5/weights/best.pt",
+    data="data/data.yaml",
     batch_size=16,
     imgsz=640,
     conf_thres=0.25,
     iou_thres=0.45,
-    device='cuda',
-    save_dir='runs/val_pbc',
-    task = 'val'
+    device="cuda",
+    save_dir="runs/val_pbc",
+    task="val",
 ):
-
-    device = torch.device(device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(device if torch.cuda.is_available() else "cpu")
 
     # Load model
     model = DetectMultiBackend(weights, device=device, data=data)
-    stride, names, pt = model.stride, model.names, model.pt
+    stride, names, _pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)
 
     # Load dataset YAML
-    with open(data, 'r') as f:
+    with open(data) as f:
         data_dict = yaml.safe_load(f)
 
     # Dataloader parameters
@@ -55,7 +54,7 @@ def run(
     workers = 4
 
     # Create dataloader
-    dataloader, dataset = create_dataloader(
+    dataloader, _dataset = create_dataloader(
         data_dict[task],
         imgsz,
         batch_size,
@@ -65,7 +64,7 @@ def run(
         rect=rect,
         workers=workers,
         prefix=colorstr(f"{task}: "),
-        shuffle=False
+        shuffle=False,
     )
 
     # Metrics
@@ -77,7 +76,6 @@ def run(
 
     # Run evaluation
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader)):
-
         img = img.to(device, non_blocking=True)
         targets = targets.to(device)
 
@@ -129,12 +127,14 @@ def run(
 
     # mAP computation
     if stats_tensor.shape[0]:
-        precision, recall, AP, f1, ap_class = ap_per_class(stats_tensor[:, :4], stats_tensor[:, 4].long(), stats_tensor[:, 5])
+        precision, recall, AP, f1, ap_class = ap_per_class(
+            stats_tensor[:, :4], stats_tensor[:, 4].long(), stats_tensor[:, 5]
+        )
     else:
-        precision, recall, AP, f1, ap_class = 0, 0, 0, 0, 0
+        precision, recall, AP, f1, _ap_class = 0, 0, 0, 0, 0
 
     # Print results
-    print(f"\nPBC Evaluation Results:")
+    print("\nPBC Evaluation Results:")
     print(f"mAP@0.5: {AP:.4f}")
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
     print(f"Corrected predictions saved to {save_dir}")
@@ -142,18 +142,19 @@ def run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='runs/train/sip_yolov5/weights/best.pt')
-    parser.add_argument('--data', type=str, default='data/data.yaml')
-    parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--imgsz', type=int, default=640)
-    parser.add_argument('--conf', type=float, default=0.25)
-    parser.add_argument('--iou', type=float, default=0.45)
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--save-dir', type=str, default='runs/val_pbc')
-    parser.add_argument('--task', type=str, default='val')
+    parser.add_argument("--weights", type=str, default="runs/train/sip_yolov5/weights/best.pt")
+    parser.add_argument("--data", type=str, default="data/data.yaml")
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--imgsz", type=int, default=640)
+    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--iou", type=float, default=0.45)
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--save-dir", type=str, default="runs/val_pbc")
+    parser.add_argument("--task", type=str, default="val")
     opt = parser.parse_args()
 
-    run(weights=opt.weights,
+    run(
+        weights=opt.weights,
         data=opt.data,
         batch_size=opt.batch_size,
         imgsz=opt.imgsz,
@@ -161,4 +162,5 @@ if __name__ == "__main__":
         iou_thres=opt.iou,
         device=opt.device,
         save_dir=opt.save_dir,
-        task=opt.task)
+        task=opt.task,
+    )
