@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 from sklearn.cluster import MeanShift
 
+
 def correct_boxes_pbc(image, boxes, fast_threshold=20, bandwidth=5):
-    """
-    Apply Prediction Box Correction (PBC) on YOLO boxes.
+    """Apply Prediction Box Correction (PBC) on YOLO boxes.
 
     Args:
         image (np.array): HxWx3 uint8 image
@@ -40,10 +40,10 @@ def correct_boxes_pbc(image, boxes, fast_threshold=20, bandwidth=5):
 
         # 3. Divide into four correction regions
         regions = {
-            "left": pts[pts[:, 0] < w/2],
-            "right": pts[pts[:, 0] >= w/2],
-            "up": pts[pts[:, 1] < h/2],
-            "down": pts[pts[:, 1] >= h/2]
+            "left": pts[pts[:, 0] < w / 2],
+            "right": pts[pts[:, 0] >= w / 2],
+            "up": pts[pts[:, 1] < h / 2],
+            "down": pts[pts[:, 1] >= h / 2],
         }
 
         new_x1 = int(x1 + np.mean(regions["left"][:, 0]) if len(regions["left"]) > 0 else x1)

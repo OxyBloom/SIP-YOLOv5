@@ -32,8 +32,6 @@ except ImportError:
 
 import numpy as np
 import torch
-import torch
-
 
 torch.use_deterministic_algorithms(False)
 torch.backends.cudnn.deterministic = False
